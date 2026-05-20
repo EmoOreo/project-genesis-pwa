@@ -1,25 +1,18 @@
-# Project Genesis PWA — Upgraded
+# Project Genesis PWA
 
-Interactive fossil record and biodiversity visibility simulator.
+Fixed deployable version.
 
-## New upgrades
-- PBDB live sample mode
-- Persistent saved scenarios using localStorage
-- Export dashboard screenshot as PNG
-- Export research summary as PDF
-- App icon and splash metadata
-- Offline-first service worker
-- Animated extinction-event timeline
-- Phylogenetic-style animal group tree
-- Species reconstruction gallery
-- Data source/caveat panel
+## Deploy settings
 
-## Deploy
-Upload this folder to GitHub, import into Vercel, and use:
+Build command: npm run build
 
-Build command: `npm run build`
-Output directory: `dist`
+Output directory: dist
 
-## Local testing
-`npm install`
-`npm run dev`
+## Features
+
+- Interactive fossil record dashboard
+- Fossilization sliders
+- Saved scenarios with localStorage
+- Exportable text report
+- Offline service worker
+- Installable PWA manifest
