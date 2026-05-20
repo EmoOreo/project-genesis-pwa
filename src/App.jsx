@@ -1,111 +1,122 @@
-import React, { useMemo, useState } from 'react';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ComposedChart, Line, AreaChart, Area } from 'recharts';
-import { AlertTriangle, Archive, Bone, Bug, Database, Download, EyeOff, Fish, Gauge, Globe2, HardDrive, Radar, Save, Shell, Smartphone, TrendingUp, WifiOff } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Camera, Database, Download, Flame, Globe2, HardDrive, Network, Radar, Save, Search, Smartphone, WifiOff } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 const BASE_LIVING = 1300000;
 const BASE_FOSSIL = 250000;
 
 const phyla = [
-  { name: 'Arthropoda', living: 1070000, fossil: 72000, preservation: 0.35, icon: Bug, note: 'Living diversity is insect-heavy; fossil record is strongest for trilobites, crustaceans, and mineralized forms.' },
-  { name: 'Mollusca', living: 85000, fossil: 65000, preservation: 0.82, icon: Shell, note: 'Shells preserve well, making mollusks comparatively overrepresented in fossil databases.' },
-  { name: 'Chordata', living: 65000, fossil: 52000, preservation: 0.72, icon: Fish, note: 'Bones, teeth, and scales create a stronger fossil signal than soft tissue.' },
-  { name: 'Annelida', living: 17000, fossil: 8000, preservation: 0.28, icon: Bone, note: 'Worms are often soft-bodied; tubes and traces preserve better than bodies.' },
-  { name: 'Cnidaria', living: 11000, fossil: 12000, preservation: 0.42, icon: EyeOff, note: 'Corals preserve well; jellyfish-like organisms usually vanish without a trace.' },
-  { name: 'Echinodermata', living: 7500, fossil: 18000, preservation: 0.75, icon: Bone, note: 'Calcite plates and skeletons make echinoderms fossil-visible.' },
-  { name: 'Nematoda', living: 25000, fossil: 1000, preservation: 0.05, icon: EyeOff, note: 'Tiny soft-bodied animals are almost invisible geologically.' },
-  { name: 'Platyhelminthes', living: 20000, fossil: 700, preservation: 0.04, icon: EyeOff, note: 'Flatworms are soft-bodied and rarely mineralized, producing one of the weakest fossil signals.' },
-  { name: 'Porifera', living: 9000, fossil: 14000, preservation: 0.55, icon: Bone, note: 'Spicules, reefs, and biomineralized tissues improve preservation.' },
-  { name: 'Other animal phyla', living: 11500, fossil: 7200, preservation: 0.18, icon: Database, note: 'Aggregated small, rare, soft-bodied, and poorly sampled groups.' },
+  { name:'Arthropoda', living:1070000, fossil:72000, preservation:.35, type:'mixed', note:'Insects dominate living diversity; trilobites and crustaceans dominate many fossil signals.'},
+  { name:'Mollusca', living:85000, fossil:65000, preservation:.82, type:'hard', note:'Shells preserve well, so mollusks are strongly visible.'},
+  { name:'Chordata', living:65000, fossil:52000, preservation:.72, type:'hard', note:'Bones, teeth, scales, and shells produce a comparatively strong record.'},
+  { name:'Annelida', living:17000, fossil:8000, preservation:.28, type:'soft', note:'Worm bodies rarely preserve; tubes and traces are easier to find.'},
+  { name:'Cnidaria', living:11000, fossil:12000, preservation:.42, type:'mixed', note:'Corals preserve well; jellyfish-like animals rarely do.'},
+  { name:'Echinodermata', living:7500, fossil:18000, preservation:.75, type:'hard', note:'Calcite plates make this group highly fossil-visible.'},
+  { name:'Nematoda', living:25000, fossil:1000, preservation:.05, type:'soft', note:'Tiny soft-bodied animals are nearly invisible in ordinary fossil records.'},
+  { name:'Platyhelminthes', living:20000, fossil:700, preservation:.04, type:'soft', note:'Flatworms almost never mineralize and are severely underrepresented.'},
+  { name:'Porifera', living:9000, fossil:14000, preservation:.55, type:'hard', note:'Spicules and reef structures improve preservation.'},
+  { name:'Other animal phyla', living:11500, fossil:7200, preservation:.18, type:'soft', note:'Small, rare, and soft-bodied groups combined.'}
 ];
 
 const periods = [
-  { period: 'Ediacaran', fossils: 7000, livingAnalog: 16000, discovery: 18, softBias: 94 },
-  { period: 'Cambrian', fossils: 31000, livingAnalog: 82000, discovery: 83, softBias: 78 },
-  { period: 'Ordovician', fossils: 26000, livingAnalog: 69000, discovery: 72, softBias: 66 },
-  { period: 'Silurian', fossils: 15000, livingAnalog: 45000, discovery: 45, softBias: 59 },
-  { period: 'Devonian', fossils: 25000, livingAnalog: 72000, discovery: 68, softBias: 56 },
-  { period: 'Carboniferous', fossils: 22000, livingAnalog: 61000, discovery: 61, softBias: 53 },
-  { period: 'Permian', fossils: 19000, livingAnalog: 59000, discovery: 54, softBias: 52 },
-  { period: 'Triassic', fossils: 17000, livingAnalog: 52000, discovery: 49, softBias: 50 },
-  { period: 'Jurassic', fossils: 24000, livingAnalog: 67000, discovery: 70, softBias: 45 },
-  { period: 'Cretaceous', fossils: 34000, livingAnalog: 93000, discovery: 95, softBias: 42 },
-  { period: 'Paleogene', fossils: 17000, livingAnalog: 56000, discovery: 63, softBias: 35 },
-  { period: 'Neogene', fossils: 9000, livingAnalog: 38000, discovery: 57, softBias: 31 },
-  { period: 'Quaternary', fossils: 4000, livingAnalog: 22000, discovery: 52, softBias: 27 },
+  ['Ediacaran','635–539',7000,16,94,'Early animal traces and soft-bodied biotas'],
+  ['Cambrian','539–485',31000,82,78,'Cambrian radiation'],
+  ['Ordovician','485–444',26000,69,66,'End-Ordovician extinction'],
+  ['Silurian','444–419',15000,45,59,'Post-extinction recovery'],
+  ['Devonian','419–359',25000,72,56,'Late Devonian crisis'],
+  ['Carboniferous','359–299',22000,61,53,'Coal forest expansion'],
+  ['Permian','299–252',19000,59,52,'End-Permian mass extinction'],
+  ['Triassic','252–201',17000,52,50,'End-Triassic extinction'],
+  ['Jurassic','201–145',24000,67,45,'Marine reptile ecosystems'],
+  ['Cretaceous','145–66',34000,93,42,'K-Pg extinction'],
+  ['Paleogene','66–23',17000,56,35,'Mammal radiation'],
+  ['Neogene','23–2.6',9000,38,31,'Modern ecosystem assembly'],
+  ['Quaternary','2.6–0',4000,22,27,'Megafauna losses']
+].map(([period,mya,fossils,livingAnalog,discovery,headline])=>({period,mya,fossils,livingAnalog:livingAnalog*1000,discovery,softBias:discovery?100-discovery:50,headline}));
+
+const reconstructions = [
+  {name:'Soft-bodied worm analog', risk:'critical', text:'Likely abundant but rarely mineralized. Often known only from exceptional Lagerstätten or trace fossils.'},
+  {name:'Small arthropod analog', risk:'high', text:'Living diversity can be immense while fossil detection depends on cuticle preservation and sampling.'},
+  {name:'Shelled mollusk analog', risk:'low', text:'Durable shells increase the chance of fossilization and later discovery.'},
+  {name:'Deep-sea animal analog', risk:'critical', text:'Poor exposure and destructive seafloor recycling erase many records.'}
 ];
 
-const groups = ['Hard parts', 'Soft-bodied', 'Microscopic', 'Marine shelf', 'Terrestrial', 'Deep sea'];
+function fmt(n){ if(n>=1e9)return (n/1e9).toFixed(2)+'B'; if(n>=1e6)return (n/1e6).toFixed(2)+'M'; if(n>=1e3)return Math.round(n/1e3)+'k'; return Math.round(n); }
+function pct(n){ return Math.round(n*100)+'%'; }
 
-function format(n) {
-  if (n >= 1000000000) return `${(n / 1000000000).toFixed(2)}B`;
-  if (n >= 1000000) return `${(n / 1000000).toFixed(2)}M`;
-  if (n >= 1000) return `${Math.round(n / 1000)}k`;
-  return String(Math.round(n));
-}
+export default function App(){
+  const [tab,setTab]=useState('overview');
+  const [fossilRate,setFossilRate]=useState(.25);
+  const [extinction,setExtinction]=useState(1);
+  const [sampling,setSampling]=useState(1);
+  const [saved,setSaved]=useState(()=>JSON.parse(localStorage.getItem('pg-scenarios')||'[]'));
+  const [pbdb,setPbdb]=useState(null);
+  const [pbdbStatus,setPbdbStatus]=useState('idle');
+  const appRef=useRef(null);
 
-function StatCard({ label, value, Icon, sub }) {
-  return <div className="card stat"><Icon className="statIcon" /><p>{label}</p><strong>{value}</strong>{sub && <small>{sub}</small>}</div>;
-}
+  useEffect(()=>localStorage.setItem('pg-scenarios',JSON.stringify(saved)),[saved]);
 
-function Range({ label, value, setValue, min, max, step, suffix }) {
-  return <label className="range"><span>{label}<b>{value.toFixed(step < 1 ? 2 : 1)}{suffix}</b></span><input type="range" min={min} max={max} step={step} value={value} onChange={e => setValue(Number(e.target.value))} /></label>;
-}
+  const totalEver = Math.round((BASE_FOSSIL/(fossilRate/100))*extinction);
+  const missing = Math.max(0,totalEver-BASE_FOSSIL);
+  const timeline = useMemo(()=>periods.map((p,i)=>{
+    const oldPenalty=1+(periods.length-i)*.035;
+    const estimatedMissing=Math.round(((p.livingAnalog/Math.max(fossilRate/100,.001))*(p.softBias/65)*oldPenalty*extinction)/3.5);
+    return {...p, discovered:Math.round(p.fossils*sampling), missing:estimatedMissing, visibility:Math.round((p.fossils/(p.fossils+estimatedMissing))*100)};
+  }),[fossilRate, extinction, sampling]);
 
-function HeatCell({ value }) {
-  return <div className="heatCell" style={{ opacity: 0.16 + value / 118 }} title={`${value}/100 discovery intensity`} />;
-}
-
-export default function App() {
-  const [view, setView] = useState('mission');
-  const [bias, setBias] = useState('all');
-  const [fossilRate, setFossilRate] = useState(0.25);
-  const [extinction, setExtinction] = useState(1.0);
-  const [sampling, setSampling] = useState(1.0);
-  const [saved, setSaved] = useState(() => JSON.parse(localStorage.getItem('pg-scenarios') || '[]'));
-
-  const model = useMemo(() => {
-    const rate = Math.max(0.01, fossilRate / 100);
-    const totalEver = Math.round((BASE_FOSSIL / rate) * extinction);
-    const missing = Math.max(0, totalEver - BASE_FOSSIL);
-    return { rate, totalEver, missing, visibility: BASE_FOSSIL / Math.max(totalEver, 1) };
-  }, [fossilRate, extinction]);
-
-  const filteredPhyla = phyla.filter(p => bias === 'soft' ? p.preservation < 0.3 : bias === 'hard' ? p.preservation >= 0.55 : true);
-  const phylumData = filteredPhyla.map(p => ({ ...p, livingScaled: Math.round(p.living / 1000), fossilScaled: Math.round(p.fossil / 1000) }));
-  const timeline = periods.map((p, i) => {
-    const oldPenalty = 1 + (periods.length - i) * 0.035;
-    const missing = Math.round(((p.livingAnalog / Math.max(model.rate, 0.001)) * (p.softBias / 65) * oldPenalty * extinction) / 3.5);
-    return { ...p, discovered: Math.round(p.fossils * sampling), missing, visibility: Math.round((p.fossils / Math.max(p.fossils + missing, 1)) * 100) };
-  });
-  const heatmap = periods.map((p, i) => ({ period: p.period, values: groups.map((_, j) => Math.max(2, Math.min(100, Math.round(p.discovery * sampling + [18, -p.softBias * .55, -p.softBias * .72, 15, -18 + i * 1.2, -35][j])))) }));
-
-  function saveScenario() {
-    const next = [{ id: Date.now(), fossilRate, extinction, sampling, totalEver: model.totalEver, missing: model.missing }, ...saved].slice(0, 6);
-    setSaved(next);
-    localStorage.setItem('pg-scenarios', JSON.stringify(next));
+  async function loadPBDB(){
+    setPbdbStatus('loading');
+    try{
+      const url='https://paleobiodb.org/data1.2/occs/list.json?base_name=Animalia&interval=Cambrian,Cretaceous&show=class,coords,phylo,time&limit=500';
+      const res=await fetch(url);
+      const json=await res.json();
+      const records=json.records||[];
+      const byPeriod={};
+      records.forEach(r=>{ const key=r.eag||r.lag||r.tei||'Unknown'; byPeriod[key]=(byPeriod[key]||0)+1; });
+      setPbdb({count:records.length, byPeriod:Object.entries(byPeriod).slice(0,8).map(([name,value])=>({name,value})), sample:records.slice(0,5)});
+      setPbdbStatus('loaded');
+    }catch(e){ setPbdbStatus('error'); }
   }
 
-  return <main>
-    <header className="hero">
-      <div><p className="kicker"><Radar size={16} /> Project Genesis • Fossil Record Intelligence PWA</p><h1>Earth animal history visibility simulator</h1><p className="lead">Explore known living species, known fossil species, preservation bias, geological discovery intensity, and the invisible majority of species that likely vanished without fossil evidence.</p></div>
-      <div className="badges"><span><Smartphone />Installable</span><span><WifiOff />Offline-ready</span><span><HardDrive />Local saves</span><span><Download />Exportable</span></div>
+  async function exportPNG(){
+    const canvas=await html2canvas(appRef.current,{backgroundColor:'#020617',scale:2});
+    const a=document.createElement('a'); a.href=canvas.toDataURL('image/png'); a.download='project-genesis-dashboard.png'; a.click();
+  }
+  function exportPDF(){
+    const doc=new jsPDF();
+    doc.setFontSize(18); doc.text('Project Genesis Fossil Record Report',14,18);
+    doc.setFontSize(11);
+    const lines=[`Known living animal species: ${fmt(BASE_LIVING)}`,`Known fossilized species: ${fmt(BASE_FOSSIL)}`,`Fossilization success assumption: ${fossilRate.toFixed(2)}%`,`Estimated animal species ever: ${fmt(totalEver)}`,`Estimated missing species: ${fmt(missing)}`,'Major caveat: dashboard values are scaled estimates unless PBDB live sample mode is used.'];
+    lines.forEach((l,i)=>doc.text(l,14,34+i*8));
+    doc.save('project-genesis-report.pdf');
+  }
+  function saveScenario(){ setSaved([{id:Date.now(),fossilRate,extinction,sampling,totalEver,missing},...saved].slice(0,8)); }
+
+  return <main className="app" ref={appRef}>
+    <header className="hero panel">
+      <div><p className="kicker"><Radar size={14}/> PROJECT GENESIS • FOSSIL RECORD INTELLIGENCE PWA</p><h1>Earth animal history visibility simulator</h1><p>Explore living species, fossilized species, preservation bias, geological discovery rates, missing species, and live fossil database samples.</p></div>
+      <div className="badges"><span><Smartphone/> Installable</span><span><WifiOff/> Offline-first</span><span><HardDrive/> Local saves</span><span><Download/> Exports</span></div>
     </header>
-
-    <nav><div className="tabs">{['mission','phyla','timeline','heatmap'].map(v => <button className={view===v?'active':''} onClick={() => setView(v)} key={v}>{v}</button>)}</div><select value={bias} onChange={e=>setBias(e.target.value)}><option value="all">All phyla</option><option value="soft">Soft-bodied blind spots</option><option value="hard">Hard-part biased</option></select><button className="save" onClick={saveScenario}><Save size={16}/> Save</button></nav>
-
-    <section className="stats"><StatCard label="Known living animal species" value={format(BASE_LIVING)} Icon={Bug} sub="Dashboard anchor"/><StatCard label="Known fossilized species" value={format(BASE_FOSSIL)} Icon={Bone} sub="Dashboard baseline"/><StatCard label="Estimated animal species ever" value={format(model.totalEver)} Icon={Globe2} sub={`At ${fossilRate.toFixed(2)}% fossilization`} /><StatCard label="Estimated missing species" value={format(model.missing)} Icon={TrendingUp} sub={`${Math.round((1-model.visibility)*100)}% outside visible signal`} /></section>
-
-    <section className="grid">
-      <aside className="card controls"><h2><Gauge size={20}/> Simulation controls</h2><p>Tune assumptions and watch the fossil gap shift.</p><Range label="Fossilization success" value={fossilRate} setValue={setFossilRate} min={0.05} max={1} step={0.05} suffix="%"/><Range label="Extinction multiplier" value={extinction} setValue={setExtinction} min={0.5} max={3} step={0.1} suffix="×"/><Range label="Sampling intensity" value={sampling} setValue={setSampling} min={0.5} max={2} step={0.1} suffix="×"/><div className="warning"><AlertTriangle size={18}/> Scaled model estimates for visualization. Connect to live fossil database exports later for research-grade data.</div></aside>
-
-      <section className="card chart">
-        {view==='mission' && <><h2>Mission overview</h2><ResponsiveContainer width="100%" height={420}><ComposedChart data={timeline}><CartesianGrid strokeDasharray="3 3" stroke="#334155"/><XAxis dataKey="period" stroke="#94a3b8" angle={-25} textAnchor="end" height={75}/><YAxis yAxisId="left" stroke="#94a3b8" tickFormatter={format}/><YAxis yAxisId="right" orientation="right" stroke="#94a3b8" tickFormatter={format}/><Tooltip contentStyle={{background:'#020617',border:'1px solid #334155',borderRadius:12}} formatter={format}/><Legend/><Bar yAxisId="left" dataKey="discovered" name="Known fossil signal" fill="#22d3ee" radius={[8,8,0,0]}/><Line yAxisId="right" type="monotone" dataKey="missing" name="Modeled missing species" stroke="#fbbf24" strokeWidth={3}/></ComposedChart></ResponsiveContainer></>}
-        {view==='phyla' && <><h2>Species by major animal phylum</h2><ResponsiveContainer width="100%" height={420}><BarChart data={phylumData} layout="vertical" margin={{left:20,right:20}}><CartesianGrid strokeDasharray="3 3" stroke="#334155"/><XAxis type="number" stroke="#94a3b8"/><YAxis dataKey="name" type="category" stroke="#94a3b8" width={135}/><Tooltip contentStyle={{background:'#020617',border:'1px solid #334155',borderRadius:12}} formatter={(v)=>`${v}k`}/><Legend/><Bar dataKey="livingScaled" name="Living species" fill="#22d3ee" radius={[0,10,10,0]}/><Bar dataKey="fossilScaled" name="Fossil species" fill="#818cf8" radius={[0,10,10,0]}/></BarChart></ResponsiveContainer></>}
-        {view==='timeline' && <><h2>Geological visibility timeline</h2><ResponsiveContainer width="100%" height={420}><AreaChart data={timeline}><CartesianGrid strokeDasharray="3 3" stroke="#334155"/><XAxis dataKey="period" stroke="#94a3b8" angle={-25} textAnchor="end" height={75}/><YAxis stroke="#94a3b8"/><Tooltip contentStyle={{background:'#020617',border:'1px solid #334155',borderRadius:12}}/><Area type="monotone" dataKey="visibility" name="Visible fossil signal %" fill="#22d3ee" stroke="#22d3ee" fillOpacity={.25}/></AreaChart></ResponsiveContainer></>}
-        {view==='heatmap' && <><h2>Discovery-rate heatmap</h2><div className="heatmap"><div></div>{groups.map(g=><b key={g}>{g}</b>)}{heatmap.map(row=><React.Fragment key={row.period}><span>{row.period}</span>{row.values.map((v,i)=><HeatCell key={i} value={v}/>)}</React.Fragment>)}</div></>}
-      </section>
-    </section>
-
-    <section className="lower"><div className="card"><h2>Underrepresented fossil groups</h2><div className="cards">{phyla.filter(p=>p.preservation<.3).map(p=>{const Icon=p.icon;return <article key={p.name}><div><Icon size={18}/><b>{p.name}</b><em>{Math.round(p.preservation*100)}% visibility</em></div><p>{p.note}</p></article>})}</div></div><div className="card"><h2><Archive size={20}/> Saved scenarios</h2>{saved.length===0?<p className="empty">No saved scenarios yet.</p>:saved.map((s,i)=><p className="scenario" key={s.id}>Scenario {saved.length-i}: {format(s.totalEver)} ever existed • {format(s.missing)} missing</p>)}</div></section>
-  </main>;
+    <nav className="nav panel"><button onClick={()=>setTab('overview')} className={tab==='overview'?'active':''}>Overview</button><button onClick={()=>setTab('phyla')} className={tab==='phyla'?'active':''}>Phyla</button><button onClick={()=>setTab('timeline')} className={tab==='timeline'?'active':''}>Timeline</button><button onClick={()=>setTab('pbdb')} className={tab==='pbdb'?'active':''}>PBDB Live</button><button onClick={()=>setTab('tree')} className={tab==='tree'?'active':''}>Tree</button><button onClick={saveScenario}><Save size={15}/> Save</button></nav>
+    <section className="stats"><Card title="Known living animal species" value={fmt(BASE_LIVING)} icon={<Globe2/>}/><Card title="Known fossilized species" value={fmt(BASE_FOSSIL)} icon={<Database/>}/><Card title="Estimated species ever" value={fmt(totalEver)} icon={<Network/>}/><Card title="Estimated missing species" value={fmt(missing)} icon={<Flame/>}/></section>
+    <section className="grid"><aside className="panel controls"><h2>Simulation controls</h2><Slider label="Fossilization success" value={fossilRate} min=.05 max=1 step=.05 suffix="%" onChange={setFossilRate}/><Slider label="Extinction multiplier" value={extinction} min=.5 max=3 step=.1 suffix="×" onChange={setExtinction}/><Slider label="Discovery sampling" value={sampling} min=.5 max=2 step=.1 suffix="×" onChange={setSampling}/><button onClick={exportPNG}><Camera size={16}/> Export PNG</button><button onClick={exportPDF}><Download size={16}/> Export PDF</button><small>Saved scenarios persist on this device using localStorage.</small></aside>
+      <section className="panel chart">
+        {tab==='overview'&&<><h2>Mission overview</h2><ResponsiveContainer width="100%" height={350}><ComposedChart data={timeline}><CartesianGrid strokeDasharray="3 3" stroke="#173447"/><XAxis dataKey="period" stroke="#8cb6c8" angle={-25} textAnchor="end" height={70}/><YAxis yAxisId="l" stroke="#8cb6c8" tickFormatter={fmt}/><YAxis yAxisId="r" orientation="right" stroke="#8cb6c8" tickFormatter={fmt}/><Tooltip contentStyle={{background:'#020617',border:'1px solid #1f6b86'}}/><Bar yAxisId="l" dataKey="discovered" fill="#22d3ee" name="Known fossil signal"/><Line yAxisId="r" dataKey="missing" stroke="#fbbf24" strokeWidth={3} name="Modeled missing species"/></ComposedChart></ResponsiveContainer></>}
+        {tab==='phyla'&&<><h2>Major animal phyla</h2><ResponsiveContainer width="100%" height={380}><BarChart data={phyla.map(p=>({...p,livingK:p.living/1000,fossilK:p.fossil/1000}))} layout="vertical"><CartesianGrid strokeDasharray="3 3" stroke="#173447"/><XAxis type="number" stroke="#8cb6c8"/><YAxis type="category" dataKey="name" width={120} stroke="#8cb6c8"/><Tooltip contentStyle={{background:'#020617',border:'1px solid #1f6b86'}}/><Bar dataKey="livingK" fill="#22d3ee" name="Living species k"/><Bar dataKey="fossilK" fill="#818cf8" name="Fossil species k"/></BarChart></ResponsiveContainer><div className="cards">{phyla.filter(p=>p.type==='soft').map(p=><Info key={p.name} {...p}/>)}</div></>}
+        {tab==='timeline'&&<><h2>Geological visibility timeline</h2><ResponsiveContainer width="100%" height={360}><AreaChart data={timeline}><CartesianGrid strokeDasharray="3 3" stroke="#173447"/><XAxis dataKey="period" stroke="#8cb6c8" angle={-25} textAnchor="end" height={70}/><YAxis stroke="#8cb6c8"/><Tooltip contentStyle={{background:'#020617',border:'1px solid #1f6b86'}}/><Area dataKey="visibility" stroke="#22d3ee" fill="#22d3ee55" name="Visible fossil signal %"/></AreaChart></ResponsiveContainer><div className="events">{timeline.filter(t=>t.headline.includes('extinction')||t.headline.includes('crisis')).map(t=><span key={t.period}>⚠ {t.period}: {t.headline}</span>)}</div></>}
+        {tab==='pbdb'&&<PBDB status={pbdbStatus} data={pbdb} load={loadPBDB}/>} 
+        {tab==='tree'&&<Tree/>}
+      </section></section>
+    <section className="panel gallery"><h2>Species reconstruction gallery</h2><div className="gallery-grid">{reconstructions.map((r,i)=><div className="recon" key={r.name}><div className={'orb '+r.risk}></div><h3>{r.name}</h3><p>{r.text}</p><b>{r.risk} fossil-loss risk</b></div>)}</div></section>
+    <section className="panel saved"><h2>Saved scenarios</h2>{saved.length? saved.map(s=><p key={s.id}>Rate {s.fossilRate.toFixed(2)}% • Ever {fmt(s.totalEver)} • Missing {fmt(s.missing)}</p>):<p>No saved scenarios yet.</p>}</section>
+    <footer className="panel foot">Sources/caveats: PBDB live mode uses the public Paleobiology Database API sample endpoint. Dashboard baseline phylum/time values are scaled visualization estimates and should be replaced with full downloaded PBDB exports for publication-grade analysis.</footer>
+  </main>
 }
+function Card({title,value,icon}){return <div className="stat panel">{icon}<span>{title}</span><b>{value}</b></div>}
+function Slider({label,value,min,max,step,suffix,onChange}){return <label><span>{label}<b>{value.toFixed(step<.1?2:1)}{suffix}</b></span><input type="range" value={value} min={min} max={max} step={step} onChange={e=>onChange(Number(e.target.value))}/></label>}
+function Info(p){return <article className="mini"><h3>{p.name}</h3><p>{p.note}</p><b>{Math.round(p.preservation*100)}% visibility</b></article>}
+function PBDB({status,data,load}){return <div><h2>PBDB live fossil sample</h2><p className="muted">Loads a small live Animalia occurrence sample from the Paleobiology Database API. Internet is required for this panel; the rest of the app works offline after install.</p><button onClick={load}><Search size={16}/> Load PBDB sample</button><p>Status: {status}</p>{data&&<><p>Loaded records: {data.count}</p><ResponsiveContainer width="100%" height={260}><BarChart data={data.byPeriod}><CartesianGrid strokeDasharray="3 3" stroke="#173447"/><XAxis dataKey="name" stroke="#8cb6c8"/><YAxis stroke="#8cb6c8"/><Tooltip contentStyle={{background:'#020617',border:'1px solid #1f6b86'}}/><Bar dataKey="value" fill="#22d3ee"/></BarChart></ResponsiveContainer><div className="sample">{data.sample.map((r,i)=><p key={i}>{r.tna||r.oid||'Occurrence'} • {r.oei||r.eag||'unknown interval'}</p>)}</div></>}</div>}
+function Tree(){const nodes=['Animalia','Bilateria','Protostomia','Arthropoda','Mollusca','Annelida','Deuterostomia','Chordata','Echinodermata','Non-bilaterians','Cnidaria','Porifera'];return <div><h2>Phylogenetic-style visibility tree</h2><div className="tree">{nodes.map((n,i)=><div key={n} style={{marginLeft:(i%4)*24}}><span>{n}</span><em>{i%3===0?'high gap':i%3===1?'medium gap':'strong fossil signal'}</em></div>)}</div></div>}
